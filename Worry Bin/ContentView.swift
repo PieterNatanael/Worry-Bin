@@ -67,7 +67,7 @@ struct ContentView: View {
 
     
     func playClapSound() {
-        if let soundURL = Bundle.main.url(forResource: "clap", withExtension: "mp3") {
+        if let soundURL = Bundle.main.url(forResource: "flute", withExtension: "mp3") {
             do {
                 // Initialize the AVAudioPlayer with the clap sound URL
                 clapSoundPlayer = try AVAudioPlayer(contentsOf: soundURL)
