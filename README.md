@@ -9,6 +9,8 @@ We do not collect any personal data or information from our users. Your privacy 
 Contact Us:
 If you have any questions or concerns about our privacy policy or the app Worry Bin, please contact us at pieternatanael@icloud.com.
 
+Developer : Pieter Yoshua Natanael
+
 Chinese (Simplified):
 隐私政策
 
