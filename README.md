@@ -1,3 +1,7 @@
+Introducing Worry Bin – Your Personal Peacekeeper!
+Tired of sleepless nights filled with worries? Worry Bin is here to save the day! This innovative app helps you track, manage, and conquer your worries like never before. With intuitive features and a user-friendly interface, Worry Bin empowers you to take control of your mental well-being. From setting reminders to journaling your thoughts, Worry Bin is your go-to companion for a calmer, more balanced life. Download now!
+
+https://apps.apple.com/id/app/worry-bin/id6498626727
 
 Privacy Policy
 
