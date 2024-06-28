@@ -5,6 +5,391 @@
 //  Created by Pieter Yoshua Natanael on 16/04/24.
 //
 
+import SwiftUI
+import AVFoundation
+
+// Main Content View
+struct ContentView: View {
+    @State private var showAdsAndAppFunctionality = false
+    @State private var showDeleteConfirmation = false
+    @State private var selectedWorry: Worry?
+    
+    @State private var worries: [Worry] = []
+    @State private var SoundEffect: AVAudioPlayer?
+    @State private var defaults = UserDefaults.standard // UserDefaults for data persistence
+    @StateObject private var viewModel = WorryViewModel()
+    @State private var newWorryText = ""
+
+    // DateFormatter for formatting dates
+    let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        return formatter
+    }()
+
+    // Save worries to UserDefaults
+    func save() {
+        let encoder = JSONEncoder()
+        if let encoded = try? encoder.encode(worries) {
+            defaults.set(encoded, forKey: "SavedWorries")
+        }
+    }
+
+    // Load worries from UserDefaults
+    func load() {
+        let decoder = JSONDecoder()
+        if let data = defaults.data(forKey: "SavedWorries") {
+            if let loadedWorries = try? decoder.decode([Worry].self, from: data) {
+                worries = loadedWorries
+            }
+        }
+    }
+
+    // Add a new worry and save data
+    func addWorry() {
+        let newWorry = Worry(text: newWorryText)
+        worries.append(newWorry)
+        newWorryText = ""
+        save()
+        playSoundEffect()
+        showMessage(title: "Thank You!", message: "Thank you for sharing your worry.")
+    }
+
+    // Delete a worry and save data
+    func deleteWorry(atOffsets offsets: IndexSet) {
+        worries.remove(atOffsets: offsets)
+        save()
+    }
+
+    // Play a sound effect
+    func playSoundEffect() {
+        if let soundURL = Bundle.main.url(forResource: "flute", withExtension: "mp3") {
+            do {
+                SoundEffect = try AVAudioPlayer(contentsOf: soundURL)
+                SoundEffect?.play()
+            } catch {
+                print("Error loading clap sound file: \(error.localizedDescription)")
+            }
+        } else {
+            print("Clap sound file not found.")
+        }
+    }
+
+    // Show an alert message
+    func showMessage(title: String, message: String) {
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alertController.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+            windowScene.windows.first?.rootViewController?.present(alertController, animated: true, completion: nil)
+        }
+    }
+
+    // Toggle the realized status of a worry
+    func toggleRealized(for worry: Worry) {
+        if let index = worries.firstIndex(where: { $0.id == worry.id }) {
+            worries[index].realized.toggle()
+        }
+    }
+    
+
+    var body: some View {
+        ZStack {
+            // Background Color Gradient
+            LinearGradient(colors: [Color(#colorLiteral(red: 0, green: 0.5690457821, blue: 0.5746168494, alpha: 1)), .clear], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        showAdsAndAppFunctionality = true
+                    }) {
+                        Image(systemName: "questionmark.circle.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(Color(.white))
+                            .padding()
+                            .shadow(color: Color.black.opacity(0.6), radius: 5, x: 0, y: 2)
+                    }
+                }
+                Spacer()
+                HStack {
+                    Text("Worry Bin")
+                        .font(.largeTitle.bold())
+                        .foregroundColor(.white)
+                        .padding()
+                    Spacer()
+                }
+                List {
+                    ForEach(worries) { worry in
+                        VStack(alignment: .leading) {
+                            Text(worry.text)
+                            HStack {
+                                Text("Added: \(worry.timestamp, formatter: dateFormatter)")
+                                Spacer()
+                                Text("\(worry.daysAgo) days ago")
+                                Button(action: {
+                                    toggleRealized(for: worry)
+                                }) {
+                                    Image(systemName: worry.realized ? "checkmark.circle.fill" : "circle")
+                                        .font(.title2)
+                                        .foregroundColor(worry.realized ? Color(#colorLiteral(red: 0, green: 0.5690457821, blue: 0.5746168494, alpha: 1)) : .primary)
+                                }
+                                .buttonStyle(BorderlessButtonStyle())
+                                Button(action: {
+                                    selectedWorry = worry
+                                    showDeleteConfirmation = true
+                                }) {
+                                    Image(systemName: "trash")
+                                        .font(.title3.bold())
+                                        .foregroundColor(Color(#colorLiteral(red: 0, green: 0.5690457821, blue: 0.5746168494, alpha: 1)))
+                                }
+                                .buttonStyle(BorderlessButtonStyle())
+                            }
+                            .foregroundColor(worry.realized ? Color(#colorLiteral(red: 0, green: 0.5690457821, blue: 0.5746168494, alpha: 1)) : .primary)
+                        }
+                    }
+                    .onDelete(perform: deleteWorry)
+                }
+                .listStyle(PlainListStyle())
+                
+                TextField("Enter your worry", text: $newWorryText)
+                    .padding()
+
+                Button(action: addWorry) {
+                    Text("Save Worry")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(#colorLiteral(red: 0, green: 0.5690457821, blue: 0.5746168494, alpha: 1)))
+                        .foregroundColor(.white)
+                        .font(.title3.bold())
+                        .cornerRadius(10)
+                        .padding()
+                        .shadow(color: Color.black.opacity(0.5), radius: 5, x: 0, y: 2)
+                }
+                .padding()
+            }
+            .onAppear {
+                load()
+            }
+            .sheet(isPresented: $showAdsAndAppFunctionality) {
+                ShowAdsAndAppFunctionalityView(onConfirm: {
+                    showAdsAndAppFunctionality = false
+                })
+            }
+            .alert(isPresented: $showDeleteConfirmation) {
+                Alert(
+                    title: Text("Delete Worry"),
+                    message: Text("Are you sure you want to delete this worry forever?"),
+                    primaryButton: .destructive(Text("Yes")) {
+                        if let selectedWorry = selectedWorry {
+                            if let index = worries.firstIndex(where: { $0.id == selectedWorry.id }) {
+                                worries.remove(at: index)
+                            }
+                        }
+                        selectedWorry = nil
+                        save()
+                        playSoundEffect()
+                    },
+                    secondaryButton: .cancel(Text("No")) {
+                        selectedWorry = nil
+                    }
+                )
+            }
+        }
+    }
+}
+
+// Custom Text Field Style
+struct CustomTextFieldStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding()
+            .background(Color(#colorLiteral(red: 0.9529411793, green: 0.9529411793, blue: 0.9725490212, alpha: 1)))
+            .cornerRadius(10)
+            .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+    }
+}
+
+// Worry Model
+struct Worry: Identifiable, Codable {
+    var id = UUID()
+    var text: String
+    var realized = false
+    var timestamp = Date()
+    
+    var daysAgo: Int {
+        Calendar.current.dateComponents([.day], from: timestamp, to: Date()).day ?? 0
+    }
+}
+
+// MARK: - Ads and App Functionality View
+
+// View showing information about ads and the app functionality
+struct ShowAdsAndAppFunctionalityView: View {
+    var onConfirm: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack {
+                // Section header
+                HStack {
+                    Text("Ads & App Functionality")
+                        .font(.title3.bold())
+                    Spacer()
+                }
+                Divider().background(Color.gray)
+
+                // Ads section
+                VStack {
+                    // Ads header
+                    HStack {
+                        Text("Ads")
+                            .font(.largeTitle.bold())
+                        Spacer()
+                    }
+                    // Ad image with link
+                    ZStack {
+                        Image("threedollar")
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .cornerRadius(25)
+                            .clipped()
+                            .onTapGesture {
+                                if let url = URL(string: "https://b33.biz/three-dollar/") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                    }
+                    
+                    // App Cards for ads
+                    VStack {
+                        Divider().background(Color.gray)
+
+                        AppCardView(imageName: "sos", appName: "SOS Light", appDescription: "SOS Light is designed to maximize the chances of getting help in emergency situations.", appURL: "https://apps.apple.com/app/s0s-light/id6504213303")
+                        Divider().background(Color.gray)
+                        AppCardView(imageName: "bodycam", appName: "BODYCam", appDescription: "Record videos effortlessly and discreetly.", appURL: "https://apps.apple.com/id/app/b0dycam/id6496689003")
+                        Divider().background(Color.gray)
+
+                        AppCardView(imageName: "timetell", appName: "TimeTell", appDescription: "Announce the time every 30 seconds, no more guessing and checking your watch, for time-sensitive tasks.", appURL: "https://apps.apple.com/id/app/loopspeak/id6473384030")
+                        Divider().background(Color.gray)
+
+                        AppCardView(imageName: "SingLoop", appName: "Sing LOOP", appDescription: "Record your voice effortlessly, and play it back in a loop.", appURL: "https://apps.apple.com/id/app/sing-l00p/id6480459464")
+                        Divider().background(Color.gray)
+
+                        AppCardView(imageName: "loopspeak", appName: "LOOPSpeak", appDescription: "Type or paste your text, play in loop, and enjoy hands-free narration.", appURL: "https://apps.apple.com/id/app/loopspeak/id6473384030")
+                        Divider().background(Color.gray)
+
+                        AppCardView(imageName: "insomnia", appName: "Insomnia Sheep", appDescription: "Design to ease your mind and help you relax leading up to sleep.", appURL: "https://apps.apple.com/id/app/insomnia-sheep/id6479727431")
+                        Divider().background(Color.gray)
+
+                        AppCardView(imageName: "dryeye", appName: "Dry Eye Read", appDescription: "The go-to solution for a comfortable reading experience, by adjusting font size and color to suit your reading experience.", appURL: "https://apps.apple.com/id/app/dry-eye-read/id6474282023")
+                        Divider().background(Color.gray)
+
+                        AppCardView(imageName: "iprogram", appName: "iProgramMe", appDescription: "Custom affirmations, schedule notifications, stay inspired daily.", appURL: "https://apps.apple.com/id/app/iprogramme/id6470770935")
+                        Divider().background(Color.gray)
+
+                        AppCardView(imageName: "temptation", appName: "TemptationTrack", appDescription: "One button to track milestones, monitor progress, stay motivated.", appURL: "https://apps.apple.com/id/app/temptationtrack/id6471236988")
+                        Divider().background(Color.gray)
+                    }
+                    Spacer()
+                }
+                .padding()
+                .cornerRadius(15.0)
+
+                // App functionality section
+                HStack {
+                    Text("App Functionality")
+                        .font(.title.bold())
+                    Spacer()
+                }
+
+                Text("""
+                • Users can enter their worries into a text field and save them.
+                • Saved worries are displayed in a list with details such as the date added and how many days ago they were added.
+                • Each worry in the list has a 'checkmark' button that users can tap to mark the worry as resolved (if it has been addressed and no longer poses a threat).
+                • Users can delete worries by tapping the "trash" button next to each worry, with a confirmation dialog to ensure they want to delete it permanently.
+                • The app automatically calculates and displays the number of days since each worry was added.
+                •We do not collect data, so there's no need to worry
+                """)
+                .font(.title3)
+                .multilineTextAlignment(.leading)
+                .padding()
+
+                Spacer()
+
+                HStack {
+                    Text("Worry Bin is developed by Three Dollar.")
+                        .font(.title3.bold())
+                    Spacer()
+                }
+
+                // Close button
+                Button("Close") {
+                    onConfirm()
+                }
+                .font(.title)
+                .padding()
+                .cornerRadius(25.0)
+            }
+            .padding()
+            .cornerRadius(15.0)
+        }
+    }
+}
+
+// MARK: - Ads App Card View
+
+// View displaying individual ads app cards
+struct AppCardView: View {
+    var imageName: String
+    var appName: String
+    var appDescription: String
+    var appURL: String
+
+    var body: some View {
+        HStack {
+            Image(imageName)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 60, height: 60)
+                .cornerRadius(7)
+
+            VStack(alignment: .leading) {
+                Text(appName)
+                    .font(.title3)
+                Text(appDescription)
+                    .font(.caption)
+            }
+            .frame(alignment: .leading)
+
+            Spacer()
+
+            // Try button
+            Button(action: {
+                if let url = URL(string: appURL) {
+                    UIApplication.shared.open(url)
+                }
+            }) {
+                Text("Try")
+                    .font(.headline)
+                    .padding()
+                    .foregroundColor(.white)
+                    .background(Color.blue)
+                    .cornerRadius(10)
+            }
+        }
+    }
+}
+
+
+// Preview
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
+}
+
+/*
+//good tapi mau rubah warna
 
 import SwiftUI
 import AVFoundation
@@ -385,7 +770,7 @@ struct ContentView_Previews: PreviewProvider {
     }
 }
 
-
+*/
 
 /*
 //great but need improvement
